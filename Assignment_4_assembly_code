@@ -24,7 +24,7 @@ R8- Make sure the following variables are in the following register locations:
 //  	V1.2: date - Changes something….
 //-----------------------------
 
-		ORG 0x08 ;starts program ar 0x08 (R7)
+	ORG 0x08 ;starts program ar 0x08 (R7)
 
 	;set register locations (R8)
 	refTemp EQU 0x20
