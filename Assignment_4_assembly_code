@@ -1,0 +1,68 @@
+R1- If measuredTemp>refTemp → contReg=2 →  On the 7-segment display H →  Turn on PORTC.2, which is connected to an LED ONLY
+R2- If measuredTemp<refTemp → contReg=1 →  On the 7-segment display C →  Turn on PORTC.1, which is connected to an LED ONLY
+R3- If measuredTemp=refTemp → contReg=0 →  display nothing
+
+Other system requirements include the following: 
+R4- The refTemp can be between +10 Degree celsius and +50 Degree celsius. 
+R5- The measuredTemp can be between -20 Degree celsius and +60 Degree celsius. 
+R6- You can only use PORTC. No other ports can be used as output.
+R7- Your program must start from register 0x8 in the program memory. 
+R8- Make sure the following variables are in the following register locations: 
+	refTemp→ REG 0x20, measuredTemp→ REG 0x21, contReg → REG 0x22
+
+//-----------------------------
+// Title: ?
+//-----------------------------
+// Purpose: what does this program do? 
+// Dependencies: Are you using any header files - if no say NONE
+// Compiler: Which IDE Simulator Version ???
+// Author: Your name 
+// OUTPUTS: outputs of this program? What are they connected to? 
+// INPUTS: inputs of this program? What are they connected to? 
+// Versions:
+//  	V1.0: today’s date - First version 
+//  	V1.2: date - Changes something….
+//-----------------------------
+
+	ORG 0x08 ;starts program ar 0x08 (R7)
+
+	;set register locations (R8)
+	refTemp EQU 0x20
+	measuredTemp EQU 0x21
+	contReg EQU 0x22
+
+
+	;arbituary values for inputs
+	input_measuredTemp EQU 0x05
+	input_refTemp EQU 0xA
+
+
+
+	MOVLW input_refTemp
+	MOVWF refTemp
+	MOVLW input_measuredTemp
+	MOVWF measuredTemp
+
+
+	;if measuredTemp = refTemp, contReg = 0
+	MOVFW refTemp
+	CPFSEQ  measuredTemp, W	;Compare F with W, skip if F = W
+	GOTO check_less_or_greater
+	SLEEP
+
+check_less_or_greater:
+	;measuredTemp<refTemp → contReg=1
+	INCF contReg, 0x01
+	CPFSLT  measuredTemp, W	;Compare F with W, skip if F < W
+	GOTO check_if_greater
+	SLEEP
+
+check_if_greater:
+	;measuredTemp>refTemp → contReg=2
+	INCF contReg,0x01
+	CPFSGT  measuredTemp, W	;Compare F with W, skip if F > W
+	ADDLW 0x11
+	SLEEP
+
+
+
