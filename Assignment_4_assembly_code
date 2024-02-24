@@ -24,45 +24,73 @@ R8- Make sure the following variables are in the following register locations:
 //  	V1.2: date - Changes something….
 //-----------------------------
 
-	ORG 0x08 ;starts program ar 0x08 (R7)
+		ORG 0x08 ;starts program ar 0x08 (R7)
 
 	;set register locations (R8)
 	refTemp EQU 0x20
 	measuredTemp EQU 0x21
 	contReg EQU 0x22
 
+	;INPUT VALUES
+	input_measuredTemp EQU 5
+	input_refTemp EQU 12
 
-	;arbituary values for inputs
-	input_measuredTemp EQU 0x05
-	input_refTemp EQU 0xA
-
-
-
+	;move inputs into storage
 	MOVLW input_refTemp
 	MOVWF refTemp
 	MOVLW input_measuredTemp
 	MOVWF measuredTemp
 
+	;Check for negative inputs
+	GOTO neg_check
 
-	;if measuredTemp = refTemp, contReg = 0
+BEGIN:	;if measuredTemp = refTemp, contReg = 0
 	MOVFW refTemp
 	CPFSEQ  measuredTemp, W	;Compare F with W, skip if F = W
 	GOTO check_less_or_greater
-	SLEEP
+	GOTO SEG_OFF
 
 check_less_or_greater:
 	;measuredTemp<refTemp → contReg=1
-	INCF contReg, 0x01
 	CPFSLT  measuredTemp, W	;Compare F with W, skip if F < W
 	GOTO check_if_greater
-	SLEEP
+	GOTO SEG_COLD
 
 check_if_greater:
 	;measuredTemp>refTemp → contReg=2
-	INCF contReg,0x01
-	CPFSGT  measuredTemp, W	;Compare F with W, skip if F > W
-	ADDLW 0x11
+	GOTO SEG_HOT
+
+neg_check:
+	MOVWF measuredTemp ;moved measuredTemp to WREG
+	BTFSS WREG,7 ;test bit 7 of WREG, if set (neg) then
+	GOTO BEGIN
+	GOTO SEG_COLD
+
+
+SEG_OFF:;if measuredTemp = refTemp, contReg = 0
 	SLEEP
 
 
+SEG_COLD:;measuredTemp<refTemp → contReg=1
+	INCF contReg, 0x01
+	MOVLW 0X00
+	MOVWF TRISC
+	MOVLW 0X39
+	MOVWF PORTC
+	MOVLW 0X00
+	MOVWF PORTC
+	BSF PORTC, 1 ; turns on PORTC.1
 
+	SLEEP
+
+SEG_HOT:;measuredTemp>refTemp → contReg=2
+	INCF contReg,0x01
+	INCF contReg,0x01
+	MOVLW 0X00
+	MOVWF TRISC
+	MOVLW 0X76
+	MOVWF PORTC
+	MOVLW 0x00
+	MOVWF PORTC
+	BSF PORTC, 2 ; turns on PORTC.1
+	SLEEP
