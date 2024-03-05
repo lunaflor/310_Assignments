@@ -66,6 +66,11 @@ PSECT absdata,abs,ovrld        ; Do not change
 	GOTO	START
 	ORG	0x20		;Begin assembly at 0x20
 START:
+	MOVLW 0X00 ;load 0x00 to TRISD
+	MOVWF TRISD ;sets all bits to outputs
+	MOVLW 0x00 ;load 0x00 to PORTD
+	MOVWF PORTD ;initializes PORTD
+	
 	;move inputs into input registers
 	MOVLW input_refTemp
 	MOVWF refTemp
@@ -78,36 +83,28 @@ START:
 Comperator:  
 	MOVF measuredTemp, W ;move measuredTemp to WREG
 	BTFSC WREG,7 ;test bit 7 of WREG, if clear (not negative) then skip
-	GOTO SEG_COLD ;if negative, go directly to SEG_COLD
+	GOTO LED_COLD ;if negative, go directly to SEG_COLD
 	MOVF refTemp, W ;move refTemp to WREG
 	CPFSEQ  measuredTemp ;Compare F with W, skip if F = W
 	GOTO check_less ;check if measuredTemp<refTemp, contReg=1
-	GOTO SEG_OFF ;if measuredTemp = refTemp, contReg = 0
+	GOTO LED_OFF ;if measuredTemp = refTemp, contReg = 0
 	
-SEG_OFF: ;if measuredTemp = refTemp, contReg = 0
+LED_OFF: ;if measuredTemp = refTemp, contReg = 0
 	GOTO STOP ;goes to STOP which ends program
 	
 check_less: ;check if measuredTemp<refTemp, contReg=1
 	CPFSLT  measuredTemp ;Compare F with W, skip if F < W
-	GOTO SEG_HOT ;if F>W
-	GOTO SEG_COLD ;if F<W
+	GOTO LED_HOT ;if F>W
+	GOTO LED_COLD ;if F<W
 	
-SEG_HOT:;measuredTemp>refTemp, contReg=2
+LED_HOT:;measuredTemp>refTemp, contReg=2
 	INCF contReg,0x01 ;increment for countreg
 	INCF contReg,0x01 ;repeat incrementation
-	MOVLW 0X00 ;load 0x00 to TRISD
-	MOVWF TRISD ;sets all bits to outputs
-	MOVLW 0x00 ;load 0x00 to PORTD
-	MOVWF PORTD ;initializes PORTD
 	BSF COOLING_SYSTEM ;turns on PORTD.2
 	GOTO STOP ;goes to end program
 	
-SEG_COLD:;measuredTemp<refTemp, contReg=1
+LED_COLD:;measuredTemp<refTemp, contReg=1
 	INCF contReg, 0x01 ;increment for countreg
-	MOVLW 0X00 ;load 0x00 to TRISD
-	MOVWF TRISD ;sets all bits to outputs
-	MOVLW 0x00 ;load 0x00 to PORTD
-	MOVWF PORTD ;initializes PORTD
 	BSF HEATING_SYSTEM ;turn on PORTD.1
 	GOTO STOP ; goes to end program 
 	
