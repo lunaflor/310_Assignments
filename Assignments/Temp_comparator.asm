@@ -18,7 +18,6 @@
 //  	V1.2: 02/29/2024 - Second version
 //	V2.3: 03/03/2024 - Third version
 //--------------------	
-
 ;---------------------
 ; Initialization
 ;---------------------
@@ -32,8 +31,8 @@
 ;---------------------
 ; Program Inputs
 ;---------------------
-input_refTemp EQU 5 //+10 Degree celsius and +50 Degree celsius. 
-input_measuredTemp EQU -5 //-20 Degree celsius and +60 Degree celsius 
+input_refTemp EQU 20		//+10 Degree celsius and +50 Degree celsius. 
+input_measuredTemp EQU -5	//-20 Degree celsius and +60 Degree celsius 
 ;---------------------
 ; Registers
 ;---------------------
@@ -41,17 +40,23 @@ refTemp EQU 0x20
 measuredTemp EQU 0x21
 contReg EQU 0x22
 
-refTemp_L EQU 0x60 //LSB of refTemp
-refTemp_M EQU 0x61 //middle bits of refTemp
-refTemp_H EQU 0x62 //MSB of refTemp
+refTemp_L EQU 0x60 
+refTemp_M EQU 0x61 
+refTemp_H EQU 0x62 
 
 measuredTemp_L EQU 0x70
 measuredTemp_M EQU 0x71
 measuredTemp_H EQU 0x72
  
+REG_L EQU 0x80
+REG_M EQU 0x81
+REG_H EQU 0x82
+ 
+input_selection EQU 0x13
+input_selection_reg EQU 0x14
 NUME EQU 0x15 ;RAM location for NUME
 QU EQU 0x16 ;RAM location for quotient
-MYDEN EQU 10
+MYDEN EQU 10 
 ;---------------------
 ; Main Program
 ;---------------------
@@ -59,48 +64,37 @@ PSECT absdata,abs,ovrld        ; Do not change
  
 	ORG	00		;Reset vector
 	GOTO	START
-
 	ORG	0x20		;Begin assembly at 0x20
-START:
 
+START:
 	;move inputs into storage
 	MOVLW input_refTemp
 	MOVWF refTemp
 	MOVLW input_measuredTemp
 	MOVWF measuredTemp
-
-	;Check for negative inputs
 	GOTO Hex_to_Decimal
-BEGIN:  
+
+Comperator:  
+	MOVF measuredTemp, W ;moved measuredTemp to WREG
+	BTFSS WREG,7 ;test bit 7 of WREG, if clear (not negative) then skip
+	GOTO SEG_COLD
 	;if measuredTemp = refTemp, contReg = 0
 	MOVF refTemp, W
 	CPFSEQ  measuredTemp	;Compare F with W, skip if F = W
-	GOTO check_less_or_greater
+	GOTO check_less
 	GOTO SEG_OFF
+SEG_OFF:
+	GOTO STOP ;if measuredTemp = refTemp, contReg = 0
 
-check_less_or_greater:
-	;measuredTemp<refTemp ? contReg=1
+check_less:
+	;measuredTemp<refTemp, contReg=1
 	CPFSLT  measuredTemp	;Compare F with W, skip if F < W
-	GOTO check_if_greater
+	GOTO check_greater
 	GOTO SEG_COLD
 
-check_if_greater:
-	;measuredTemp>refTemp ? contReg=2
+check_greater:
+	;measuredTemp>refTemp, contReg=2
 	GOTO SEG_HOT
-
-SEG_OFF:;if measuredTemp = refTemp, contReg = 0
-	SLEEP
-
-
-SEG_COLD:;measuredTemp<refTemp ? contReg=1
-	INCF contReg, 0x01
-	MOVLW 0X00
-	MOVWF TRISD
-	MOVLW 0X00
-	MOVWF PORTD
-	BSF HEATER; Additionally, turn on PORTD.1
-	SLEEP
-
 SEG_HOT:;measuredTemp>refTemp, contReg=2
 	INCF contReg,0x01
 	INCF contReg,0x01
@@ -109,17 +103,21 @@ SEG_HOT:;measuredTemp>refTemp, contReg=2
 	MOVLW 0x00
 	MOVWF PORTD
 	BSF COOLER ; Additionally, turn on PORTD.2
-	SLEEP
+	GOTO STOP
 
-check_if_neg:
-	MOVF measuredTemp, W ;moved measuredTemp to WREG
-	BTFSS WREG,7 ;test bit 7 of WREG, if set (neg) then skip
-	GOTO Continue
-	GOTO NEGATIVE_CONFIRMED
+SEG_COLD:;measuredTemp<refTemp ? contReg=1
+	INCF contReg, 0x01
+	MOVLW 0X00
+	MOVWF TRISD
+	MOVLW 0X00
+	MOVWF PORTD
+	BSF HEATER; Additionally, turn on PORTD.1
+	GOTO STOP
 
 Hex_to_Decimal: ;convert hex to decimal for refTemp
 	MOVLW input_refTemp
-	MOVWF NUME
+AGAIN:  MOVWF NUME
+	INCF input_selection,0x01
 	MOVLW MYDEN
 	CLRF QU
 D_1:	INCF QU, F
@@ -127,7 +125,7 @@ D_1:	INCF QU, F
 	BC D_1
 	ADDWF NUME, F
 	DECF QU, F
-	MOVFF NUME, refTemp_L
+	MOVFF NUME, REG_L
 	MOVFF QU, NUME
 	CLRF QU
 D_2:	INCF QU, F
@@ -135,58 +133,33 @@ D_2:	INCF QU, F
 	BC D_2
 	ADDWF NUME, F
 	DECF QU, F
-	MOVFF NUME, refTemp_M
-	MOVFF QU, refTemp_H
-	
+	MOVFF NUME, REG_M
+	MOVFF QU, REG_H
 	CLRF QU
 	CLRF NUME
 	CLRF MYDEN
-	
-	GOTO check_if_neg 
-	
-	;negative numbers too
-Continue:
-	MOVLW input_measuredTemp ;convert hex to decimal for measuredTemp
-        MOVWF NUME
-	MOVLW MYDEN
-	CLRF QU
-D_3:	INCF QU, F
-	SUBWF NUME, F
-	BC D_3
-	ADDWF NUME, F
-	DECF QU, F
-	MOVFF NUME, measuredTemp_L
-	MOVFF QU, NUME
-	CLRF QU
-D_4:	INCF QU, F
-	SUBWF NUME, F
-	BC D_4
-	ADDWF NUME, F
-	DECF QU, F
-	MOVFF NUME, measuredTemp_M
-	MOVFF QU, measuredTemp_H
-
-	GOTO BEGIN
-	
-NEGATIVE_CONFIRMED: ;convert hex to decimal for negative measuredTemp
+	GOTO check_input_selection
+check_neg_conversion:
+	MOVFF REG_L, refTemp_L
+	MOVFF REG_M, refTemp_M
+	MOVFF REG_H, refTemp_H
+	MOVF measuredTemp, W ;moved measuredTemp to WREG
+	BTFSS WREG,7 ;test bit 7 of WREG, if set (neg) then skip
+	GOTO AGAIN
 	MOVF measuredTemp, W
 	NEGF WREG 
-        MOVWF NUME
-	MOVLW MYDEN
-	CLRF QU
-D_5:	INCF QU, F
-	SUBWF NUME, F
-	BC D_5
-	ADDWF NUME, F
-	DECF QU, F
-	MOVFF NUME, measuredTemp_L
-	MOVFF QU, NUME
-	CLRF QU
-D_6:	INCF QU, F
-	SUBWF NUME, F
-	BC D_6
-	ADDWF NUME, F
-	DECF QU, F
-	MOVFF NUME, measuredTemp_M
-	MOVFF QU, measuredTemp_H
-	GOTO SEG_COLD
+	GOTO AGAIN
+
+check_input_selection:
+	MOVLW 0x02
+	MOVWF input_selection_reg
+	MOVF input_selection, W
+	CPFSEQ  input_selection_reg	;Compare F with W, skip if F = W
+	GOTO check_neg_conversion
+	MOVFF REG_L, measuredTemp_L
+	MOVFF REG_M, measuredTemp_M
+	MOVFF REG_H, measuredTemp_H
+	GOTO Comperator
+STOP:
+    END
+	
