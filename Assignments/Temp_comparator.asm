@@ -26,13 +26,13 @@
 ;---------------------
 ; Definitions
 ;---------------------
-#define HEATER	  PORTD, 1 //Output for PORTD.1
-#define COOLER	  PORTD, 2 //Output for PORTD.2
+#define HEATING_SYSTEM	  PORTD, 1 //Output for PORTD.1
+#define COOLING_SYSTEM	  PORTD, 2 //Output for PORTD.2
 ;---------------------
 ; Program Inputs
 ;---------------------
-input_refTemp EQU 21		//+10 Degree celsius and +50 Degree celsius. 
-input_measuredTemp EQU 60	//-20 Degree celsius and +60 Degree celsius 
+input_refTemp EQU 15		//+10 Degree celsius and +50 Degree celsius. 
+input_measuredTemp EQU 20	//-20 Degree celsius and +60 Degree celsius 
 ;---------------------
 ; Registers
 ;---------------------
@@ -99,7 +99,7 @@ SEG_HOT:;measuredTemp>refTemp, contReg=2
 	MOVWF TRISD ;sets all bits to outputs
 	MOVLW 0x00 ;load 0x00 to PORTD
 	MOVWF PORTD ;initializes PORTD
-	BSF COOLER ;turns on PORTD.2
+	BSF COOLING_SYSTEM ;turns on PORTD.2
 	GOTO STOP ;goes to end program
 	
 SEG_COLD:;measuredTemp<refTemp, contReg=1
@@ -108,7 +108,7 @@ SEG_COLD:;measuredTemp<refTemp, contReg=1
 	MOVWF TRISD ;sets all bits to outputs
 	MOVLW 0x00 ;load 0x00 to PORTD
 	MOVWF PORTD ;initializes PORTD
-	BSF HEATER ;turn on PORTD.1
+	BSF HEATING_SYSTEM ;turn on PORTD.1
 	GOTO STOP ; goes to end program 
 	
 Hex_to_Decimal: ;convert hex to decimal for refTemp first
