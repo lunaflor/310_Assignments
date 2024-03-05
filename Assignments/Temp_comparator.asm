@@ -83,12 +83,15 @@ Comperator:
 	CPFSEQ  measuredTemp ;Compare F with W, skip if F = W
 	GOTO check_less ;check if measuredTemp<refTemp, contReg=1
 	GOTO SEG_OFF ;if measuredTemp = refTemp, contReg = 0
+	
 SEG_OFF: ;if measuredTemp = refTemp, contReg = 0
 	GOTO STOP ;goes to STOP which ends program
+	
 check_less: ;check if measuredTemp<refTemp, contReg=1
 	CPFSLT  measuredTemp ;Compare F with W, skip if F < W
 	GOTO SEG_HOT ;if F>W
 	GOTO SEG_COLD ;if F<W
+	
 SEG_HOT:;measuredTemp>refTemp, contReg=2
 	INCF contReg,0x01 ;increment for countreg
 	INCF contReg,0x01 ;repeat incrementation
@@ -98,6 +101,7 @@ SEG_HOT:;measuredTemp>refTemp, contReg=2
 	MOVWF PORTD ;initializes PORTD
 	BSF COOLER ;turns on PORTD.2
 	GOTO STOP ;goes to end program
+	
 SEG_COLD:;measuredTemp<refTemp, contReg=1
 	INCF contReg, 0x01 ;increment for countreg
 	MOVLW 0X00 ;load 0x00 to TRISD
@@ -106,8 +110,10 @@ SEG_COLD:;measuredTemp<refTemp, contReg=1
 	MOVWF PORTD ;initializes PORTD
 	BSF HEATER ;turn on PORTD.1
 	GOTO STOP ; goes to end program 
+	
 Hex_to_Decimal: ;convert hex to decimal for refTemp first
 	MOVLW input_refTemp ;loads refTemp input to NUME (first loop)
+	
 AGAIN:  MOVWF NUME ;loop for measuredTemp 
 	INCF input_selection,0x01 ;keeps track of loops
 	MOVLW MYDEN ;WREG =10
@@ -127,19 +133,25 @@ D_2:	INCF QU, F ;increments quotient for every subtraction
 	DECF QU, F
 	MOVFF NUME, REG_M ;scond digit
 	MOVFF QU, REG_H ;third digit
+	
 	;clear paramaters to setup for second loop 
 	CLRF QU 
 	CLRF NUME
 	CLRF MYDEN
 	GOTO check_input_selection ;checks if we need another hex to decimal loop
+	
 check_neg_conversion:
 	;hex conversion done for loop one (refTemp) but need loop 2 (measuredTemp)
 	MOVFF REG_L, refTemp_L ;move registers to refTemp registers
 	MOVFF REG_M, refTemp_M
 	MOVFF REG_H, refTemp_H
+	
+	;check if measuredTemp is neg
 	MOVF measuredTemp, W ;move measuredTemp to WREG
 	BTFSS WREG,7 ;test bit 7 of WREG, if set (neg) then skip
 	GOTO AGAIN ;hex to decimal for measuredTemp
+	
+	;measuredTemp IS neg
 	MOVF measuredTemp, W ;move measuredTemp to WREG
 	NEGF WREG ;2's compliment of WREG
 	GOTO AGAIN ;hex to decimal for negative measuredTemp
@@ -150,10 +162,12 @@ check_input_selection: ;check to see if we are on our first or second loop
 	MOVF input_selection, W ;move input_selection into WREG
 	CPFSEQ  input_selection_reg ;if W=2, hex to decimal conversion is done
 	GOTO check_neg_conversion ;still need hex to decimal for measured Temp
+	
 	;hex conversion done for both loops (refTemp & measuredTemp)
 	MOVFF REG_L, measuredTemp_L ;move registers to refTemp registers
 	MOVFF REG_M, measuredTemp_M
 	MOVFF REG_H, measuredTemp_H
+	
 	GOTO Comperator ;time to compare temps
 STOP:
     END ;end program
