@@ -32,7 +32,7 @@
 ; Program Inputs
 ;---------------------
 input_refTemp EQU 15		//+10 Degree celsius and +50 Degree celsius. 
-input_measuredTemp EQU 20	//-20 Degree celsius and +60 Degree celsius 
+input_measuredTemp EQU 0	//-20 Degree celsius and +60 Degree celsius 
 ;---------------------
 ; Registers
 ;---------------------
