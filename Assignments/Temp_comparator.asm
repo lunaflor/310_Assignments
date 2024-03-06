@@ -52,11 +52,10 @@ REG_L EQU 0x80 //arbitrary register for LSB (least significant bit)
 REG_M EQU 0x81 //arbitrary register for middle bit
 REG_H EQU 0x82 //arbitrary register for MSB (most significant bit)
  
-input_selection EQU 0x13 //register to initially hold input_selection
-input_selection_reg EQU 0x14 //register for input_selection comperating
-NUME EQU 0x15 //RAM location for NUME
-QU EQU 0x16 //RAM location for quotient
-MYDEN EQU 10 //denominator to divide by
+sel_input EQU 0x13 //register to keep track of hex to dec loops
+num EQU 0x15 //RAM location for input
+qu EQU 0x16 //RAM location for quotient
+denom EQU 10 //denominator to divide by
 ;---------------------
 ; Main Program
 ;---------------------
@@ -66,10 +65,8 @@ PSECT absdata,abs,ovrld        ; Do not change
 	GOTO	START
 	ORG	0x20		;Begin assembly at 0x20
 START:
-	MOVLW 0X00 ;load 0x00 to TRISD
-	MOVWF TRISD ;sets all bits to outputs
-	MOVLW 0x00 ;load 0x00 to PORTD
-	MOVWF PORTD ;initializes PORTD
+	CLRF TRISD ;sets all bits to outputs
+	CLRF PORTD ;initializes PORTD
 	
 	;move inputs into input registers
 	MOVLW input_refTemp
@@ -78,71 +75,71 @@ START:
 	MOVWF measuredTemp
 	
 	;convert hex to decimal
-	GOTO Hex_to_Decimal
+	RCALL Hex_to_Decimal
 	
 Comperator:  
-	MOVF measuredTemp, W ;move measuredTemp to WREG
-	BTFSC WREG,7 ;test bit 7 of WREG, if clear (not negative) then skip
-	GOTO LED_COLD ;if negative, go directly to SEG_COLD
-	MOVF refTemp, W ;move refTemp to WREG
+	MOVF measuredTemp, W 
+	BTFSC WREG,7 ;test bit 7 of WREG, skip if clear
+	GOTO LED_COLD ;if negative
+	MOVF refTemp, W 
 	CPFSEQ  measuredTemp ;Compare F with W, skip if F = W
-	GOTO check_less ;check if measuredTemp<refTemp, contReg=1
-	GOTO LED_OFF ;if measuredTemp = refTemp, contReg = 0
+	GOTO check_less ;check if measuredTemp<refTemp
 	
-LED_OFF: ;if measuredTemp = refTemp, contReg = 0
+LED_OFF: 
 	GOTO STOP ;goes to STOP which ends program
 	
-check_less: ;check if measuredTemp<refTemp, contReg=1
+check_less: ;check if measuredTemp<refTemp
+	INCF contReg,0x01 ;increment for countreg
 	CPFSLT  measuredTemp ;Compare F with W, skip if F < W
 	GOTO LED_HOT ;if F>W
-	GOTO LED_COLD ;if F<W
-	
-LED_HOT:;measuredTemp>refTemp, contReg=2
-	INCF contReg,0x01 ;increment for countreg
-	INCF contReg,0x01 ;repeat incrementation
-	BSF COOLING_SYSTEM ;turns on PORTD.2
-	GOTO STOP ;goes to end program
 	
 LED_COLD:;measuredTemp<refTemp, contReg=1
-	INCF contReg, 0x01 ;increment for countreg
 	BSF HEATING_SYSTEM ;turn on PORTD.1
-	GOTO STOP ; goes to end program 
+	GOTO STOP 
+	
+LED_HOT:;measuredTemp>refTemp, contReg=2
+	INCF contReg,0x01 ;increment contreg
+	BSF COOLING_SYSTEM ;turns on PORTD.2
+	GOTO STOP 
 	
 Hex_to_Decimal: ;convert hex to decimal for refTemp first
 	MOVLW input_refTemp ;loads refTemp input to NUME (first loop)
 	
-AGAIN:  MOVWF NUME ;loop for measuredTemp 
-	INCF input_selection,0x01 ;keeps track of loops
-	MOVLW MYDEN ;WREG =10
-	CLRF QU ;clears quotient
-D_1:	INCF QU, F ;increments quotient for every subtraction
-	SUBWF NUME, F ;subract WREG from NUME value (input value)
-	BC D_1 ;if positive, go back (C=1)
-	ADDWF NUME, F ;once too many, this is our first digit 
-	DECF QU, F ;once too many for quoitent
-	MOVFF NUME, REG_L ;save the first digit
-	MOVFF QU, NUME ;repeat process again
-	CLRF QU ;clear quotient
-D_2:	INCF QU, F ;increments quotient for every subtraction
-	SUBWF NUME, F ;subract WREG from NUME value (input value)
-	BC D_2 ;if positive, go back (C=1)
-	ADDWF NUME, F 
-	DECF QU, F
-	MOVFF NUME, REG_M ;scond digit
-	MOVFF QU, REG_H ;third digit
+AGAIN:  MOVWF num ;loop for measuredTemp 
+	MOVLW denom ;WREG =10
+	CLRF qu ;clears quotient
 	
-	;clear paramaters to setup for second loop 
-	CLRF QU 
-	CLRF NUME
-	CLRF MYDEN
-	GOTO check_input_selection ;checks if we need another hex to decimal loop
+loop_1:	INCF qu, F ;increments quotient for every subtraction
+	SUBWF num, F ;subract WREG from NUME value (input value)
+	BC loop_1 ;if positive, go back (C=1)
+	ADDWF num, F ;once too many, this is our first digit 
+	DECF qu, F ;once too many for quoitent
+	MOVFF num, REG_L ;save the first digit
+	MOVFF qu, num ;repeat process again
+	CLRF qu ;clear quotient
+	
+loop_2:	INCF qu, F ;increments quotient for every subtraction
+	SUBWF num, F ;subract WREG from NUME value (input value)
+	BC loop_2 ;if positive, go back (C=1)
+	ADDWF num, F 
+	DECF qu, F
+	MOVFF num, REG_M ;scond digit
+	MOVFF qu, REG_H ;third digit
+
+	BTFSS sel_input, 0
+	GOTO check_neg_conversion
+	;hex conversion done for both temps
+	MOVFF REG_L, measuredTemp_L ;move registers to refTemp registers
+	MOVFF REG_M, measuredTemp_M
+	MOVFF REG_H, measuredTemp_H
+	RETURN
 	
 check_neg_conversion:
 	;hex conversion done for loop one (refTemp) but need loop 2 (measuredTemp)
 	MOVFF REG_L, refTemp_L ;move registers to refTemp registers
 	MOVFF REG_M, refTemp_M
 	MOVFF REG_H, refTemp_H
-	
+	INCF sel_input,0x01
 	;check if measuredTemp is neg
 	MOVF measuredTemp, W ;move measuredTemp to WREG
 	BTFSS WREG,7 ;test bit 7 of WREG, if set (neg) then skip
@@ -153,18 +150,5 @@ check_neg_conversion:
 	NEGF WREG ;2's compliment of WREG
 	GOTO AGAIN ;hex to decimal for negative measuredTemp
 
-check_input_selection: ;check to see if we are on our first or second loop 
-	MOVLW 0x02 ;load 0x02 into WREG
-	MOVWF input_selection_reg ;load 0x02 to input selection reg
-	MOVF input_selection, W ;move input_selection into WREG
-	CPFSEQ  input_selection_reg ;if W=2, hex to decimal conversion is done
-	GOTO check_neg_conversion ;still need hex to decimal for measured Temp
-	
-	;hex conversion done for both loops (refTemp & measuredTemp)
-	MOVFF REG_L, measuredTemp_L ;move registers to refTemp registers
-	MOVFF REG_M, measuredTemp_M
-	MOVFF REG_H, measuredTemp_H
-	
-	GOTO Comperator ;time to compare temps
 STOP:
     END ;end program
