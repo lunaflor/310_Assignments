@@ -28,7 +28,14 @@ Ports:
     MOVLW	0b11000000 ;Set RD0 & RD1 as inputs
     MOVWF	TRISD
 
-
+Start:
+    MOVLW      0x00 ; setting the upper table pointer at 0x00
+    MOVWF      TBLPTRU 
+    MOVLW      0x01  ; setting the higher table pointer at 0x01
+    MOVWF      TBLPTRH
+    MOVLW      0x60  ; setting the higher table pointer at 0x60
+    MOVWF      TBLPTRL 
+ 
     ORG 0x160 ;where display numbers for table pointers is located
 SEG_TABLE: 
 	    db  0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D ;0-5 in display
